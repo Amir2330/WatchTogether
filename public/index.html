@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تماشای مشترک</title>
+<style>
+  @font-face { font-family:Vazirmatn; font-weight:100 900; font-display:swap; src:url(fonts/Vazirmatn.woff2) format("woff2"); }
+  :root {
+    --bg:#0d0a06; --panel:#17120b; --panel2:#1f1810; --line:#3a2f17;
+    --gold:#f5b82e; --gold2:#ffcf5c; --text:#f3ece0; --muted:#9a8f7a; --green:#4ade80; --red:#f87171;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family:Vazirmatn, Tahoma, system-ui, sans-serif; overflow:hidden; }
+  button { font-family:inherit; cursor:pointer; border:0; color:inherit; }
+  svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; display:block; }
+  svg.fill { fill:currentColor; stroke:none; }
+
+  .app { height:100vh; height:100dvh; display:grid; grid-template-columns:1fr 360px; gap:12px; padding:10px; }
+  .main { display:flex; flex-direction:column; gap:10px; min-width:0; min-height:0; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; }
+
+  /* top bar */
+  .topbar { display:flex; gap:10px; align-items:center; padding:10px; position:relative; }
+  .topbar input[type=text] { flex:1; min-width:0; height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--text); direction:ltr; font-family:inherit; font-size:14px; outline:none; }
+  .topbar input[type=text]:focus { border-color:var(--gold); }
+  .topbar input::placeholder { direction:rtl; color:var(--muted); }
+  .btn-gold { height:44px; padding:0 26px; border-radius:10px; background:var(--gold); color:#2a1d00; font-weight:700; font-size:15px; }
+  .btn-gold:hover { background:var(--gold2); }
+  .btn-menu { height:44px; padding:0 12px; border-radius:10px; background:var(--panel2); border:1px solid var(--line); display:flex; align-items:center; gap:4px; }
+  .btn-menu:hover { border-color:var(--gold); }
+  .menu { display:none; position:absolute; top:60px; inset-inline-start:10px; z-index:30; min-width:240px; background:var(--panel2);
+    border:1px solid var(--line); border-radius:12px; padding:8px; box-shadow:0 12px 30px #000a; }
+  .menu.show { display:block; }
+  .menu .item { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:8px; background:none; font-size:14px; text-align:start; }
+  .menu .item:hover { background:#2a2113; }
+  .menu .item svg { color:var(--gold); width:18px; height:18px; }
+  .menu hr { border:0; border-top:1px solid var(--line); margin:6px 0; }
+  .menu select { margin-inline-start:auto; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font-family:inherit; }
+
+  /* stage */
+  .stage { position:relative; flex:1; min-height:0; background:#000; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .stage video { flex:1; min-height:0; width:100%; background:#000; display:block; object-fit:contain; }
+  .stage video::cue { font-family:Vazirmatn, Tahoma, sans-serif; font-size:1.2em; }
+  .placeholder { position:absolute; inset:0 0 120px 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; text-align:center; padding:20px; pointer-events:none; }
+  .placeholder svg { width:34px; height:34px; color:#eee; }
+  .placeholder b { font-size:14px; }
+  .placeholder span { font-size:12px; color:#cbbfa8; }
+  .banners { position:absolute; top:10px; inset-inline:10px; z-index:5; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+  .box { display:none; background:#2b2110ee; border:1px solid var(--line); padding:9px 12px; border-radius:10px; font-size:13px; }
+  .box.warn { background:#4a2f0eee; border-color:#7a5217; }
+
+  /* custom controls */
+  .controls { padding:6px 16px 12px; background:linear-gradient(#0000, #000c 35%); direction:ltr; }
+  .seekrow { display:flex; align-items:center; gap:14px; font-size:13px; font-variant-numeric:tabular-nums; }
+  .seekrow span { min-width:44px; text-align:center; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:4px; background:#3a3326; outline:none; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--gold); border:0; }
+  input[type=range]::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--gold); border:0; }
+  .btnrow { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:8px; flex-wrap:wrap; }
+  .cbtn { width:40px; height:40px; border-radius:50%; background:#ffffff14; display:flex; align-items:center; justify-content:center; }
+  .cbtn:hover { background:#ffffff2a; }
+  .cbtn.on { outline:2px solid var(--text); background:#ffffff22; }
+  .cbtn.big { width:44px; height:44px; background:#ffffff20; }
+  .ticks { display:flex; gap:5px; align-items:center; height:30px; padding:0 4px; cursor:pointer; }
+  .ticks i { display:block; width:4px; height:16px; border-radius:2px; background:#5b5033; }
+  .ticks i.on { background:var(--gold); }
+  .stage:fullscreen { border-radius:0; border:0; }
+  .stage.idle { cursor:none; }
+  .stage.idle .controls { opacity:0; transition:opacity .4s; }
+  .stage:fullscreen .placeholder { inset:0; }
+
+  /* online users */
+  .online { padding:8px 14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .online .toggle { background:none; color:var(--gold); width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
+  .online .toggle svg { transition:transform .2s; }
+  .online.open .toggle svg { transform:rotate(180deg); }
+  .badge { min-width:34px; height:30px; padding:0 8px; border-radius:6px; background:#12341f; border:1px solid #1f6b3c; color:var(--green); display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .online .title { display:flex; align-items:center; gap:12px; margin-inline-start:auto; }
+  .online .title .ico { width:42px; height:42px; border-radius:10px; background:var(--gold); color:#2a1d00; display:flex; align-items:center; justify-content:center; }
+  .online .title b { display:block; font-size:15px; }
+  .online .title small { color:var(--muted); font-size:12px; }
+  .dbg { color:var(--muted); font-size:12px; }
+  .userlist { display:none; width:100%; gap:8px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--line); }
+  .online.open .userlist { display:flex; }
+  .chip { background:var(--panel2); border:1px solid var(--line); border-radius:20px; padding:5px 12px; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .chip .d { width:8px; height:8px; border-radius:50%; background:var(--green); }
+  .chip.bad .d { background:var(--red); }
+
+  /* chat */
+  .chat { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .chat-h { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:14px 16px; border-bottom:1px solid var(--line); background:#1d1608; font-weight:700; }
+  .chat-h .conn { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); font-weight:400; }
+  .dot { width:8px; height:8px; border-radius:50%; background:#777; }
+  .dot.on { background:var(--green); }
+  #log { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:85%; padding:8px 12px; border-radius:12px; font-size:14px; line-height:1.7; word-break:break-word; background:var(--panel2); border:1px solid var(--line); align-self:flex-start; }
+  .msg .who { display:block; font-size:11px; color:var(--gold); margin-bottom:1px; }
+  .msg.me { align-self:flex-end; background:#3a2a08; border-color:#6b4d10; }
+  .msg.me .who { display:none; }
+  .sys { align-self:center; color:var(--muted); font-size:12px; text-align:center; padding:2px 8px; }
+  .chat-f { display:flex; gap:8px; padding:12px; border-top:1px solid var(--line); position:relative; }
+  .chat-f input { flex:1; min-width:0; height:42px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); padding:0 12px; font-family:inherit; font-size:14px; outline:none; }
+  .chat-f input:focus { border-color:var(--gold); }
+  .emo { width:42px; height:42px; border-radius:50%; background:#3a2a08; font-size:20px; display:flex; align-items:center; justify-content:center; }
+  .emopop { display:none; position:absolute; bottom:60px; inset-inline-end:12px; background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:8px; width:230px; flex-wrap:wrap; gap:2px; z-index:5; }
+  .emopop.show { display:flex; }
+  .emopop button { background:none; font-size:20px; width:36px; height:36px; border-radius:8px; }
+  .emopop button:hover { background:#2f2410; }
+
+  /* overlays */
+  .overlay { display:none; position:fixed; inset:0; background:#000d; z-index:50; align-items:center; justify-content:center; }
+  .overlay.show { display:flex; }
+  .dialog { background:var(--panel); border:1px solid var(--line); padding:26px; border-radius:16px; text-align:center; width:min(90vw,340px); }
+  .dialog input { width:100%; height:44px; margin-bottom:14px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); padding:0 12px; font-family:inherit; font-size:15px; direction:rtl; outline:none; }
+  .dialog select { width:100%; height:44px; margin-bottom:14px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); padding:0 10px; font-family:inherit; font-size:14px; }
+  .dialog input:focus { border-color:var(--gold); }
+
+  @media (max-width: 900px) {
+    body { overflow:auto; }
+    .app { height:auto; min-height:100dvh; grid-template-columns:1fr; }
+    .stage { flex:none; height:56vw; min-height:230px; }
+    .placeholder { inset:0 0 100px 0; }
+    .chat { height:360px; }
+    .btn-gold { padding:0 16px; }
+    .cbtn { width:36px; height:36px; }
+    .ticks { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="main">
+    <!-- top bar: link + submit -->
+    <div class="panel topbar">
+      <button class="btn-gold" id="load">ثبت</button>
+      <input id="src" type="text" placeholder="لینک فایل ویدیو را وارد کنید.">
+      <button class="btn-menu" id="menuBtn" title="گزینه‌ها">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 9l6 6 6-6"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      </button>
+      <div class="menu" id="menu">
+        <label class="item"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>فایل از دستگاه<input id="file" type="file" accept="video/*,.mkv" hidden></label>
+        <label class="item"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 11h4M7 15h2M13 15h4M15 11h2"/></svg>زیرنویس (فقط برای من)<input id="sub" type="file" accept=".srt,.vtt" hidden></label>
+        <hr>
+        <div class="item" style="cursor:default"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>سرعت پخش
+          <select id="rate"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- player -->
+    <div class="stage" id="stage">
+      <div class="banners">
+        <div id="note" class="box"></div>
+        <div id="wait" class="box warn"></div>
+      </div>
+      <video id="v" playsinline preload="auto"></video>
+      <div class="placeholder" id="ph">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4M17 16h4"/></svg>
+        <b>هنوز چیزی برای پخش انتخاب نشده...</b>
+        <span>لینک ویدیو را وارد کنید یا از منوی کنار دکمه «ثبت» فایل را انتخاب کنید.</span>
+      </div>
+
+      <div class="controls" id="controls">
+        <div class="seekrow">
+          <span id="tCur">00:00</span>
+          <input type="range" id="seek" min="0" max="1000" value="0" step="1">
+          <span id="tDur">00:00</span>
+        </div>
+        <div class="btnrow">
+          <button class="cbtn" id="ccBtn" title="زیرنویس"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10.5a2 2 0 100 3M16 10.5a2 2 0 100 3"/></svg></button>
+          <button class="cbtn" id="back" title="۱۰ ثانیه عقب"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg></button>
+          <button class="cbtn big" id="play" title="پخش / توقف"></button>
+          <button class="cbtn" id="volIco" title="صدا"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg></button>
+          <div class="ticks" id="ticks"></div>
+          <button class="cbtn" id="mute" title="قطع صدا"></button>
+          <button class="cbtn" id="fs" title="تمام صفحه"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></button>
+          <button class="cbtn" id="fwd" title="۱۰ ثانیه جلو"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9 9 9 0 016.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- online users -->
+    <div class="panel online" id="online">
+      <button class="toggle" id="onlineToggle" title="نمایش کاربران"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+      <div class="badge" id="count">0</div>
+      <span class="dbg" id="dbg"></span>
+      <div class="title">
+        <div><b>کاربران آنلاین</b><small id="countTxt">۰ نفر حاضر</small></div>
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg></div>
+      </div>
+      <div class="userlist" id="userlist"></div>
+    </div>
+  </div>
+
+  <!-- chat -->
+  <div class="panel chat">
+    <div class="chat-h">
+      <span>💬 گفتگو</span>
+      <span class="conn"><span class="dot" id="dot"></span><span id="conn">وارد نشدی</span> · <a href="#" id="rename" style="color:var(--gold)">تغییر اسم</a></span>
+    </div>
+    <div id="log"></div>
+    <div class="chat-f">
+      <button class="emo" id="emoBtn">🙂</button>
+      <input id="msg" type="text" placeholder="پیام خود را بنویسید...">
+      <div class="emopop" id="emoPop"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Join screen: the click here also gives the browser permission to autoplay on this tab -->
+<div id="join" class="overlay show">
+  <div class="dialog">
+    <div style="margin-bottom:14px;font-size:18px;font-weight:700">اسمت چیه؟</div>
+    <input id="nameIn" type="text" maxlength="20" placeholder="اسم تو">
+    <input id="roomIn" type="text" maxlength="50" placeholder="اسم اتاق (هر دو یکسان، سخت حدس)">
+    <select id="modeSel">
+      <option value="server">اتصال با سرور خودمون</option>
+      <option value="p2p">بدون سرور (رایگان، با بروکر عمومی)</option>
+    </select>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 14px">هر دو نفر باید اتاق و حالت یکسان انتخاب کنند.</div>
+    <div id="joinErr" style="display:none;font-size:13px;color:var(--red);margin:-6px 0 12px"></div>
+    <button class="btn-gold" id="joinBtn" style="width:100%">ورود به اتاق ▶</button>
+  </div>
+</div>
+<div id="unlock" class="overlay"><button class="btn-gold" id="unlockBtn" style="font-size:20px;height:auto;padding:18px 28px">برای ادامه کلیک کن ▶</button></div>
+
+<script src="vendor/hls.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const v = $('v');
+let room = new URLSearchParams(location.search).get('room') || '';
+let ws, hls, currentSrc = '', localFileName = '', myName = '';
+let pendingSeek = null, seekTimer = null, ignoreSyncUntil = 0, stalled = false;
+let lastServer = { playing: false, want: false, rate: 1, time: 0 };
+let userCount = 0;
+
+const ICON = {
+  play:  '<svg class="fill" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg class="fill" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>',
+  vol:   '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg>',
+  muted: '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>',
+};
+
+function show(id, text) {
+  const el = $(id);
+  el.textContent = text || '';
+  el.style.display = text ? 'block' : 'none';
+}
+function clearSources() {
+  v.removeAttribute('src');
+  for (const el of [...v.querySelectorAll('source')]) el.remove();
+}
+function updatePlaceholder() {
+  $('ph').style.display = currentSrc ? 'none' : 'flex';
+}
+
+function loadSource(src) {
+  if (!src || src === currentSrc) return;
+  currentSrc = src;
+  updatePlaceholder();
+  stalled = false;
+  if (hls) { hls.destroy(); hls = null; }
+
+  if (src.startsWith('file:')) {
+    $('src').value = '';
+    if (localFileName !== src) {
+      clearSources();
+      show('note', 'فایل «' + src.slice(5) + '» پخش میشه. همین فایل رو از منوی کنار «ثبت» با گزینه «فایل از دستگاه» انتخاب کن.');
+    }
+    return;
+  }
+  show('note', '');
+  errorReported = '';
+  $('src').value = src;
+  clearSources();
+  watchLoading(src);
+
+  if (/\.m3u8(\?|$)/i.test(src) && window.Hls && Hls.isSupported()) {
+    hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(v);
+  } else if (/\.mkv(\?|$)/i.test(src)) {
+    const so = document.createElement('source');
+    so.src = src; so.type = 'video/webm';   // Chrome/Edge play H.264+AAC mkv this way
+    v.appendChild(so);
+    v.load();
+  } else {
+    v.src = src;
+  }
+}
+
+let hub = null;
+function send(obj) {
+  if (hub) return hub.handle(obj);
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+
+function push(extra) {
+  clearTimeout(seekTimer);                       // this message already carries the current time
+  ignoreSyncUntil = Date.now() + 1500;           // don't let a stale sync reply undo what I just did
+  send({ type: 'update', src: currentSrc, playing: !v.paused, time: v.currentTime, rate: v.playbackRate, ...extra });
+}
+
+// The server is the single source of truth; everyone just follows it.
+function applyState(s) {
+  lastServer = s;     // set first, so the events we trigger below are recognised as "just following the server"
+
+  if (s.src && s.src !== currentSrc) loadSource(s.src);
+  if (s.rate && v.playbackRate !== s.rate) v.playbackRate = s.rate;
+
+  if (s.want && !s.playing && s.waiting && s.waiting.length) {
+    show('wait', '⏳ منتظر ' + s.waiting.join('، ') + ' (ویدیو در حال بارگذاری است)...');
+  } else show('wait', '');
+
+  if (v.readyState > 0) {
+    const threshold = s.playing ? 0.6 : 0.1;
+    const staleSyncReply = !s.by && Date.now() < ignoreSyncUntil;
+    if (!staleSyncReply && Math.abs(v.currentTime - s.time) > threshold) {
+      pendingSeek = { time: s.time, until: Date.now() + 4000 };   // remember: THIS seek came from the server
+      try { v.currentTime = s.time; } catch {}
+      setTimeout(() => send({ type: 'sync' }), 1500);             // verify it really landed, retry if not
+    }
+  }
+
+  if (s.playing && v.paused) {
+    v.play().catch(() => $('unlock').classList.add('show'));
+  } else if (!s.playing && !v.paused) {
+    v.pause();
+  }
+
+  $('dbg').textContent = (s.playing ? '▶ در حال پخش' : (s.want ? '⏳ منتظر' : '⏸ متوقف')) + ' | ' + fmt(s.time);
+}
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/?room=${encodeURIComponent(room)}&name=${encodeURIComponent(myName)}`);
+  ws.onopen = () => { $('dot').classList.add('on'); $('conn').textContent = 'متصل (' + room + ')'; };
+  ws.onclose = () => { $('dot').classList.remove('on'); $('conn').textContent = 'قطع شد، تلاش مجدد...'; setTimeout(connect, 2000); };
+  ws.onmessage = e => handleMsg(JSON.parse(e.data));
+}
+
+function handleMsg(m) {
+  if (m.type === 'state') {
+    applyState(m);
+    if (m.by && m.action) addSys(describe(m));
+  }
+  if (m.type === 'users') renderUsers(m.users);
+  if (m.type === 'event') addSys(m.text);
+  if (m.type === 'chat') addChat(m.name, m.text, false);
+}
+
+// ==P2P-BEGIN==
+// ---- Serverless mode: rooms live on free public MQTT brokers (over WebSocket). No hosting needed. ----
+// We connect to ALL brokers at once and publish to all of them (duplicates are dropped by message id),
+// so two people only need ONE broker in common that both of their internet connections can reach.
+const BROKERS_ALL = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://test.mosquitto.org:8081/',
+  'ws://broker.emqx.io:8083/mqtt',
+  'ws://broker.hivemq.com:8000/mqtt',
+  'ws://public.mqtthq.com:8083/mqtt',
+];
+
+class MqttLite {   // minimal MQTT 3.1.1 client: CONNECT / SUBSCRIBE / PUBLISH(QoS0) / PING
+  constructor(url, clientId, topic, onMessage, onStatus) {
+    this.url = url; this.clientId = clientId; this.topic = topic;
+    this.onMessage = onMessage; this.onStatus = onStatus;
+    this.ok = false; this.ws = null; this.stopped = false; this.buf = new Uint8Array(0);
+    this.enc = new TextEncoder(); this.dec = new TextDecoder();
+    this.ping = setInterval(() => { if (this.ok) this.raw([0xC0, 0]); }, 20000);
+  }
+  start() { this.open(); }
+  stop() { this.stopped = true; clearInterval(this.ping); try { this.ws && this.ws.close(); } catch {} }
+  retry() { if (!this.stopped) setTimeout(() => this.open(), 3000 + Math.random() * 2000); }
+  setOk(v) { if (this.ok !== v) { this.ok = v; this.onStatus(this); } }
+  open() {
+    if (this.stopped) return;
+    let ws;
+    try { ws = new WebSocket(this.url, 'mqtt'); } catch { return this.retry(); }
+    ws.binaryType = 'arraybuffer';
+    this.ws = ws; this.buf = new Uint8Array(0);
+    ws.onopen = () => this.raw(this.connectPacket());
+    ws.onmessage = e => { if (e.data instanceof ArrayBuffer) this.feed(new Uint8Array(e.data)); };
+    const dead = () => { if (this.ws !== ws) return; this.ws = null; this.setOk(false); try { ws.close(); } catch {} this.retry(); };
+    ws.onclose = dead; ws.onerror = dead;
+  }
+  raw(bytes) { if (this.ws && this.ws.readyState === 1) this.ws.send(Uint8Array.from(bytes)); }
+  remLen(n) { const o = []; do { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 128; o.push(d); } while (n > 0); return o; }
+  connectPacket() {
+    const id = this.enc.encode(this.clientId);
+    const body = [0, 4, 77, 81, 84, 84, 4, 2, 0, 30, id.length >> 8, id.length & 255, ...id];
+    return [0x10, ...this.remLen(body.length), ...body];
+  }
+  subscribe() {
+    const t = this.enc.encode(this.topic);
+    const body = [0, 1, t.length >> 8, t.length & 255, ...t, 0];
+    this.raw([0x82, ...this.remLen(body.length), ...body]);
+  }
+  publish(text) {
+    if (!this.ok) return;
+    const t = this.enc.encode(this.topic), p = this.enc.encode(text);
+    const rl = this.remLen(2 + t.length + p.length);
+    const out = new Uint8Array(1 + rl.length + 2 + t.length + p.length);
+    let i = 0;
+    out[i++] = 0x30; for (const b of rl) out[i++] = b;
+    out[i++] = t.length >> 8; out[i++] = t.length & 255;
+    out.set(t, i); i += t.length; out.set(p, i);
+    this.raw(out);
+  }
+  feed(chunk) {
+    const nb = new Uint8Array(this.buf.length + chunk.length); nb.set(this.buf); nb.set(chunk, this.buf.length); this.buf = nb;
+    for (;;) {
+      const b = this.buf;
+      if (b.length < 2) return;
+      let rem = 0, mult = 1, i = 1, d;
+      do {
+        if (i >= b.length) return;
+        d = b[i++]; rem += (d & 127) * mult; mult *= 128;
+        if (i > 5) { try { this.ws && this.ws.close(); } catch {} return; }
+      } while (d & 128);
+      if (b.length < i + rem) return;
+      const pkt = b.slice(0, i + rem);
+      this.buf = b.slice(i + rem);
+      this.handle(pkt, i);
+    }
+  }
+  handle(pkt, hl) {
+    const type = pkt[0] >> 4;
+    if (type === 2) {                                   // CONNACK
+      if (pkt[3] === 0) { this.subscribe(); this.setOk(true); }
+      else { try { this.ws && this.ws.close(); } catch {} }
+    } else if (type === 3) {                            // PUBLISH
+      const qos = (pkt[0] >> 1) & 3;
+      let i = hl;
+      const tl = (pkt[i] << 8) | pkt[i + 1]; i += 2;
+      const topic = this.dec.decode(pkt.slice(i, i + tl)); i += tl;
+      if (qos > 0) i += 2;
+      this.onMessage(topic, this.dec.decode(pkt.slice(i)));
+    }
+  }
+}
+
+// Plays the role server.js plays in server mode: it keeps the room state, who is ready, and emits the same messages.
+class P2PHub {
+  constructor(urls, room, name, onMsg, onLinks) {
+    this.id = Math.random().toString(36).slice(2, 10);
+    this.name = name; this.onMsg = onMsg; this.onLinks = onLinks;
+    this.topic = 'wtg/v1/' + room.replace(/[^\w\-\u0600-\u06FF]/g, '_').slice(0, 50);
+    this.S = { src: '', want: false, time: 0, rate: 1, at: Date.now(), rev: 0, revFrom: '', runFlag: false };
+    this.me = { ready: true, loaded: true, nrs: 0 };
+    this.peers = new Map(); this.seen = new Set(); this.seenQ = [];
+    const cid = 'wt-' + this.id;
+    this.links = urls.map(u => new MqttLite(u, cid, this.topic,
+      (tp, text) => this.incoming(tp, text),
+      l => { this.onLinks(this.links.filter(x => x.ok).length, this.links.length); if (l.ok) this.hb(); }));
+    this.links.forEach(l => l.start());
+    this.timer = setInterval(() => this.tick(), 500);
+  }
+  close() { clearInterval(this.timer); this.links.forEach(l => l.stop()); }
+
+  pub(o) {
+    o.id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); o.from = this.id;
+    const s = JSON.stringify(o);
+    for (const l of this.links) l.publish(s);
+  }
+  incoming(tp, text) {
+    if (tp !== this.topic) return;
+    let m; try { m = JSON.parse(text); } catch { return; }
+    if (!m || m.from === this.id || this.seen.has(m.id)) return;
+    this.seen.add(m.id); this.seenQ.push(m.id);
+    if (this.seenQ.length > 800) this.seen.delete(this.seenQ.shift());
+    this.recv(m);
+  }
+
+  // ---- room clock (same idea as server.js) ----
+  eff(p, now) { return p.ready || (p.nrs && now - p.nrs > 8000); }
+  allReady() { const now = Date.now(); if (!this.eff(this.me, now)) return false; for (const p of this.peers.values()) if (!this.eff(p, now)) return false; return true; }
+  waiting() { const now = Date.now(), w = []; if (!this.eff(this.me, now)) w.push(this.name); for (const p of this.peers.values()) if (!this.eff(p, now)) w.push(p.name); return w; }
+  pos() { const S = this.S; return S.runFlag ? S.time + ((Date.now() - S.at) / 1000) * S.rate : S.time; }
+  commit() { this.S.time = this.pos(); this.S.at = Date.now(); }          // call BEFORE anything that can change "running"
+  refreshRun() { this.S.runFlag = this.S.want && this.allReady(); }       // call AFTER
+  key() { return this.S.runFlag + '|' + this.waiting().join(','); }
+  snapshot() { const S = this.S; return { type: 'state', src: S.src, want: S.want, playing: S.runFlag, time: this.pos(), rate: S.rate, waiting: this.waiting() }; }
+  emitState(extra) { this.onMsg({ ...this.snapshot(), ...(extra || {}) }); }
+  sendUsers() {
+    const users = [{ name: this.name, loaded: this.me.loaded }];
+    for (const p of this.peers.values()) users.push({ name: p.name, loaded: p.loaded });
+    this.onMsg({ type: 'users', users });
+  }
+  hb() { this.pub({ t: 'hb', name: this.name, ready: this.me.ready, loaded: this.me.loaded }); }
+  stateMsg() { this.commit(); const S = this.S; return { src: S.src, want: S.want, time: S.time, rate: S.rate, rev: S.rev, revFrom: S.revFrom }; }
+  newer(rev, from) { return rev > this.S.rev || (rev === this.S.rev && from > this.S.revFrom); }
+
+  tick() {
+    const now = Date.now(), before = this.key();
+    let usersChanged = false;
+    for (const [id, p] of this.peers) {
+      if (now - p.seen > 5000) {
+        this.commit(); this.peers.delete(id); usersChanged = true;
+        this.onMsg({ type: 'event', text: p.name + ' از اتاق رفت' });
+      }
+    }
+    if (usersChanged || (this.S.want && this.allReady()) !== this.S.runFlag) { this.commit(); this.refreshRun(); }
+    if (usersChanged) this.sendUsers();
+    if (this.key() !== before) this.emitState();
+  }
+
+  // ---- messages coming from other people ----
+  recv(m) {
+    const now = Date.now();
+    if (m.t === 'hb') {
+      const before = this.key();
+      let p = this.peers.get(m.from), usersChanged = false;
+      this.commit();
+      if (!p) {
+        p = { name: m.name || 'مهمان', ready: true, loaded: true, nrs: 0, seen: now };
+        this.peers.set(m.from, p); usersChanged = true;
+        this.onMsg({ type: 'event', text: p.name + ' وارد اتاق شد' });
+        this.pub({ t: 'st', st: this.stateMsg() });      // bring the newcomer up to date
+      }
+      if (p.loaded !== !!m.loaded || p.name !== m.name) { p.loaded = !!m.loaded; p.name = m.name || p.name; usersChanged = true; }
+      if (p.ready !== !!m.ready) { p.ready = !!m.ready; p.nrs = p.ready ? 0 : now; }
+      p.seen = now;
+      this.refreshRun();
+      if (usersChanged) this.sendUsers();
+      if (this.key() !== before) this.emitState();
+    } else if (m.t === 'upd') {
+      if (!this.newer(m.rev, m.from)) return;
+      this.commit();
+      const S = this.S;
+      S.src = String(m.src || '').slice(0, 2000); S.want = !!m.want; S.time = Math.max(0, +m.time || 0);
+      if (m.rate >= 0.25 && m.rate <= 4) S.rate = m.rate;
+      S.at = now; S.rev = m.rev; S.revFrom = m.from;
+      this.refreshRun();
+      this.emitState({ by: m.name, action: String(m.action || '') });
+    } else if (m.t === 'st') {
+      const st = m.st; if (!st || !this.newer(st.rev, st.revFrom)) return;
+      this.commit();
+      const S = this.S;
+      S.src = st.src; S.want = !!st.want; S.time = Math.max(0, +st.time || 0); S.rate = st.rate || 1;
+      S.at = now; S.rev = st.rev; S.revFrom = st.revFrom;
+      this.refreshRun();
+      this.emitState();
+    } else if (m.t === 'chat') {
+      this.onMsg({ type: 'chat', name: m.name, text: String(m.text || '').slice(0, 500) });
+    } else if (m.t === 'note') {
+      this.onMsg({ type: 'event', text: String(m.text || '').slice(0, 300) });
+    } else if (m.t === 'bye') {
+      const p = this.peers.get(m.from);
+      if (p) { this.commit(); this.peers.delete(m.from); this.refreshRun(); this.onMsg({ type: 'event', text: p.name + ' از اتاق رفت' }); this.sendUsers(); this.emitState(); }
+    }
+  }
+
+  // ---- what the page does (same messages the page used to send to server.js) ----
+  handle(o) {
+    const now = Date.now();
+    if (o.type === 'sync') { this.emitState(); return; }
+    if (o.type === 'ready') {
+      let usersChanged = false;
+      if (typeof o.loaded === 'boolean' && o.loaded !== this.me.loaded) { this.me.loaded = o.loaded; usersChanged = true; }
+      const before = this.key();
+      if (typeof o.ready === 'boolean' && o.ready !== this.me.ready) {
+        this.commit(); this.me.ready = o.ready; this.me.nrs = o.ready ? 0 : now; this.refreshRun();
+      }
+      this.hb();
+      if (usersChanged) this.sendUsers();
+      if (this.key() !== before) this.emitState();
+    } else if (o.type === 'update') {
+      this.commit();
+      const S = this.S;
+      if (typeof o.src === 'string') S.src = o.src.slice(0, 2000);
+      if (typeof o.playing === 'boolean') S.want = o.playing;
+      if (typeof o.time === 'number' && isFinite(o.time)) S.time = Math.max(0, o.time);
+      if (typeof o.rate === 'number' && o.rate >= 0.25 && o.rate <= 4) S.rate = o.rate;
+      S.at = now; S.rev += 1; S.revFrom = this.id;
+      this.refreshRun();
+      this.pub({ t: 'upd', name: this.name, action: String(o.action || ''), src: S.src, want: S.want, time: S.time, rate: S.rate, rev: S.rev });
+      this.emitState();
+    } else if (o.type === 'chat' && typeof o.text === 'string') {
+      this.pub({ t: 'chat', name: this.name, text: o.text.slice(0, 500) });
+    } else if (o.type === 'notice' && typeof o.text === 'string') {
+      this.pub({ t: 'note', text: this.name + ': ' + o.text.slice(0, 200) });
+    }
+  }
+  bye() { this.pub({ t: 'bye' }); }
+}
+// ==P2P-END==
+
+function startP2P() {
+  const custom = new URLSearchParams(location.search).get('broker');
+  let urls = (custom ? [custom] : []).concat(BROKERS_ALL);
+  if (location.protocol === 'https:') urls = urls.filter(u => u.startsWith('wss:'));
+  hub = new P2PHub(urls, room, myName, handleMsg, (ok, total) => {
+    $('dot').classList.toggle('on', ok > 0);
+    $('conn').textContent = ok ? 'متصل (' + ok + '/' + total + ' سرور) · ' + room : 'در حال اتصال به سرورهای عمومی...';
+    if (ok) show('note', '');
+  });
+  setTimeout(() => {
+    if (hub && !hub.links.some(l => l.ok)) show('note', '⚠️ به هیچ‌کدوم از سرورهای عمومی وصل نشد. احتمالاً از اینترنت تو فیلتره. اتصال رو چک کن یا حالت «سرور خودمون» رو بزن.');
+  }, 15000);
+  window.addEventListener('beforeunload', () => { try { hub.bye(); } catch {} });
+}
+
+function renderUsers(users) {
+  userCount = users.length;
+  $('count').textContent = userCount;
+  $('countTxt').textContent = userCount + ' نفر حاضر';
+  const box = $('userlist');
+  box.innerHTML = '';
+  for (const u of users) {
+    const c = document.createElement('div');
+    c.className = 'chip' + (u.loaded ? '' : ' bad');
+    const d = document.createElement('span'); d.className = 'd';
+    const t = document.createElement('span'); t.textContent = u.name + (u.loaded ? '' : ' (ویدیو لود نشده)');
+    c.append(d, t);
+    box.appendChild(c);
+  }
+}
+
+// ---- My actions -> everyone (ignored when they just echo what the server told me) ----
+v.addEventListener('play', () => {
+  syncPlayIcon();
+  if (lastServer.playing) return;               // server already says playing: I'm just following
+  push({ playing: true, action: 'play' });
+});
+v.addEventListener('pause', () => {
+  syncPlayIcon();
+  if (!lastServer.playing) return;              // server already says not playing
+  if (v.ended) return;
+  push({ playing: false, action: 'pause' });
+});
+v.addEventListener('ratechange', () => {
+  $('rate').value = String(v.playbackRate);
+  if (v.playbackRate === lastServer.rate) return;
+  push({ action: 'rate' });
+});
+v.addEventListener('seeked', () => {
+  // A seek the server asked for lands (almost) exactly on its target time -> don't echo it back.
+  if (pendingSeek && Date.now() < pendingSeek.until && Math.abs(v.currentTime - pendingSeek.time) < 1.5) {
+    pendingSeek = null; return;
+  }
+  // My own seek. Dragging the bar fires many seeks: send only the last one.
+  clearTimeout(seekTimer);
+  seekTimer = setTimeout(() => push({ action: 'seek' }), 250);
+});
+v.addEventListener('loadedmetadata', () => { send({ type: 'sync' }); updateTimes(); });
+
+// ---- Buffering: report if my video is starving, so everyone waits for the slowest ----
+v.addEventListener('waiting', () => { stalled = true; });
+['playing', 'canplay', 'canplaythrough'].forEach(ev => v.addEventListener(ev, () => { stalled = false; }));
+function isLoaded() {
+  if (!currentSrc) return true;
+  if (currentSrc.startsWith('file:') && localFileName !== currentSrc) return false;
+  return v.readyState >= 1;
+}
+setInterval(() => {
+  if (stalled && v.readyState >= 3) stalled = false;
+  send({ type: 'ready', ready: !stalled, loaded: isLoaded() });
+}, 1000);
+
+// Tell me (and the other person) clearly when MY video can't load
+let errorReported = '';
+function reportError(text) {
+  show('note', '⚠️ ' + text);
+  if (errorReported !== currentSrc) { errorReported = currentSrc; send({ type: 'notice', text: text }); }
+}
+v.addEventListener('error', () => {
+  if (!currentSrc || currentSrc.startsWith('file:')) return;
+  reportError('ویدیو برای من لود نشد. لینک روی اینترنت من باز نمیشه (توکن/IP/فیلتر سرور) یا فرمتش پشتیبانی نمیشه. بهتره فایل رو دانلود کنیم و با «فایل از دستگاه» پخش کنیم.');
+}, true);   // capture: errors of <source> children don't bubble
+v.addEventListener('loadedmetadata', () => { if (!currentSrc.startsWith('file:') || localFileName === currentSrc) show('note', ''); });
+function watchLoading(src) {
+  setTimeout(() => {
+    if (currentSrc === src && !src.startsWith('file:') && v.readyState === 0 && !v.error) {
+      show('note', '⏳ ویدیو هنوز لود نشده. اگه چند ثانیه دیگه هم نشد، لینک برای اینترنت تو کار نمیکنه.');
+    }
+  }, 15000);
+}
+
+// Keep everyone locked to the server clock (also fixes a missed seek)
+setInterval(() => send({ type: 'sync' }), 2000);
+
+$('load').onclick = () => {
+  const src = $('src').value.trim();
+  if (!src) return;
+  currentSrc = '';
+  loadSource(src);
+  send({ type: 'update', src, playing: false, time: 0, action: 'src' });
+};
+$('src').onkeydown = e => { if (e.key === 'Enter') $('load').click(); };
+
+$('unlockBtn').onclick = () => { $('unlock').classList.remove('show'); send({ type: 'sync' }); };
+
+// Local file: each person picks the same file on their own PC
+$('file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const name = 'file:' + f.name;
+  const waiting = (currentSrc === name);
+  if (hls) { hls.destroy(); hls = null; }
+  clearSources();
+  v.src = URL.createObjectURL(f);
+  localFileName = name;
+  currentSrc = name;
+  updatePlaceholder();
+  stalled = false;
+  $('src').value = '';
+  show('note', '');
+  $('menu').classList.remove('show');
+  if (waiting) send({ type: 'sync' });
+  else send({ type: 'update', src: name, playing: false, time: 0, action: 'src' });
+};
+
+// Subtitles (local only): SRT or VTT
+$('sub').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  let text = await f.text();
+  if (!/^WEBVTT/.test(text.trim())) {
+    text = 'WEBVTT\n\n' + text.replace(/\r/g, '').replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2');
+  }
+  for (const t of [...v.querySelectorAll('track')]) t.remove();
+  const tr = document.createElement('track');
+  tr.kind = 'subtitles'; tr.label = 'Subtitle'; tr.default = true;
+  tr.src = URL.createObjectURL(new Blob([text], { type: 'text/vtt' }));
+  v.appendChild(tr);
+  $('menu').classList.remove('show');
+  setTimeout(() => { if (v.textTracks[0]) v.textTracks[0].mode = 'showing'; syncCC(); }, 200);
+};
+
+// ---- Player controls (custom bar) ----
+function clock(t) {
+  t = Math.max(0, Math.floor(t || 0));
+  const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  const p = n => String(n).padStart(2, '0');
+  return h ? h + ':' + p(m) + ':' + p(s) : p(m) + ':' + p(s);
+}
+let dragging = false;
+function updateTimes() {
+  const d = isFinite(v.duration) ? v.duration : 0;
+  $('tDur').textContent = clock(d);
+  if (!dragging) {
+    $('tCur').textContent = clock(v.currentTime);
+    $('seek').value = d ? Math.round(v.currentTime / d * 1000) : 0;
+  }
+}
+v.addEventListener('timeupdate', updateTimes);
+v.addEventListener('durationchange', updateTimes);
+$('seek').addEventListener('input', () => {
+  dragging = true;
+  const d = isFinite(v.duration) ? v.duration : 0;
+  $('tCur').textContent = clock($('seek').value / 1000 * d);
+});
+$('seek').addEventListener('change', () => {
+  const d = isFinite(v.duration) ? v.duration : 0;
+  dragging = false;
+  if (d) v.currentTime = $('seek').value / 1000 * d;
+});
+
+function syncPlayIcon() { $('play').innerHTML = v.paused ? ICON.play : ICON.pause; }
+function togglePlay() { if (!currentSrc) return; v.paused ? v.play().catch(() => {}) : v.pause(); }
+$('play').onclick = togglePlay;
+v.addEventListener('click', togglePlay);
+v.addEventListener('dblclick', toggleFs);
+$('back').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 10); };
+$('fwd').onclick  = () => { v.currentTime = Math.min(v.duration || 1e9, v.currentTime + 10); };
+
+// volume: 10 gold ticks + mute
+const ticks = $('ticks');
+for (let i = 1; i <= 10; i++) {
+  const t = document.createElement('i');
+  t.onclick = () => { v.muted = false; v.volume = i / 10; };
+  ticks.appendChild(t);
+}
+function syncVol() {
+  const lvl = v.muted ? 0 : Math.round(v.volume * 10);
+  [...ticks.children].forEach((t, i) => t.classList.toggle('on', i < lvl));
+  $('mute').innerHTML = (v.muted || v.volume === 0) ? ICON.muted : ICON.vol;
+}
+v.addEventListener('volumechange', syncVol);
+$('mute').onclick = () => { v.muted = !v.muted; };
+$('volIco').onclick = () => { v.muted = false; v.volume = Math.min(1, v.volume + 0.1); };
+
+// captions button
+function syncCC() {
+  const tr = v.textTracks[0];
+  $('ccBtn').classList.toggle('on', !!tr && tr.mode === 'showing');
+}
+$('ccBtn').onclick = () => {
+  const tr = v.textTracks[0];
+  if (!tr) { $('sub').click(); return; }
+  tr.mode = tr.mode === 'showing' ? 'hidden' : 'showing';
+  syncCC();
+};
+
+// fullscreen (the whole stage, so our controls stay visible)
+function toggleFs() {
+  const st = $('stage');
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (st.requestFullscreen) st.requestFullscreen();
+  else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();   // iPhone
+}
+$('fs').onclick = toggleFs;
+let idleT;
+$('stage').addEventListener('mousemove', () => {
+  $('stage').classList.remove('idle');
+  clearTimeout(idleT);
+  if (document.fullscreenElement) idleT = setTimeout(() => $('stage').classList.add('idle'), 3000);
+});
+
+// speed + menu
+$('rate').onchange = () => { v.playbackRate = parseFloat($('rate').value); };
+$('menuBtn').onclick = e => { e.stopPropagation(); $('menu').classList.toggle('show'); };
+document.addEventListener('click', e => {
+  if (!$('menu').contains(e.target)) $('menu').classList.remove('show');
+  if (!$('emoPop').contains(e.target) && e.target !== $('emoBtn')) $('emoPop').classList.remove('show');
+});
+$('onlineToggle').onclick = () => $('online').classList.toggle('open');
+
+// keyboard: space = play/pause, arrows = ±5s (not while typing)
+document.addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.code === 'ArrowLeft')  v.currentTime = Math.max(0, v.currentTime - 5);
+  else if (e.code === 'ArrowRight') v.currentTime = Math.min(v.duration || 1e9, v.currentTime + 5);
+  else if (e.key === 'f') toggleFs();
+});
+
+// ---- Chat + activity log ----
+function fmt(t) {
+  t = Math.max(0, Math.floor(t || 0));
+  const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+function describe(m) {
+  switch (m.action) {
+    case 'play':  return m.by + ' پخش کرد';
+    case 'pause': return m.by + ' متوقف کرد';
+    case 'seek':  return m.by + ' رفت به ' + fmt(m.time);
+    case 'rate':  return m.by + ' سرعت رو ' + m.rate + 'x کرد';
+    case 'src':   return m.by + ' ویدیو رو عوض کرد';
+    default:      return m.by + ' ' + m.action;
+  }
+}
+function scrollLog() { $('log').scrollTop = 1e9; }
+function addSys(t) {
+  const d = document.createElement('div');
+  d.className = 'sys'; d.textContent = t;
+  $('log').appendChild(d); scrollLog();
+}
+function addChat(name, text, mine) {
+  const d = document.createElement('div');
+  d.className = 'msg' + (mine ? ' me' : '');
+  const w = document.createElement('span'); w.className = 'who'; w.textContent = name;
+  d.append(w, document.createTextNode(text));
+  $('log').appendChild(d); scrollLog();
+}
+function sendMsg() {
+  const t = $('msg').value.trim(); if (!t) return;
+  send({ type: 'chat', text: t }); addChat(myName, t, true); $('msg').value = '';
+}
+$('msg').onkeydown = e => { if (e.key === 'Enter') sendMsg(); };
+
+// emoji picker
+['😀','😂','😍','🥰','😭','😅','😎','🤔','😮','😱','👍','👏','🙏','❤️','🔥','🎉','🍿','😴','😘','🤣'].forEach(em => {
+  const b = document.createElement('button');
+  b.textContent = em;
+  b.onclick = () => { $('msg').value += em; $('msg').focus(); };
+  $('emoPop').appendChild(b);
+});
+$('emoBtn').onclick = e => { e.stopPropagation(); $('emoPop').classList.toggle('show'); };
+
+// ---- Join (name + click that unlocks autoplay) ----
+try { $('nameIn').value = localStorage.getItem('wt_name') || ''; } catch {}
+$('roomIn').value = room;
+$('modeSel').value = (new URLSearchParams(location.search).get('mode') === 'p2p' || location.protocol === 'file:') ? 'p2p' : 'server';
+function join() {
+  myName = ($('nameIn').value || '').trim().slice(0, 20) || 'مهمان';
+  room = ($('roomIn').value || '').trim().slice(0, 50);
+  if ($('modeSel').value === 'p2p' && !room) {
+    $('joinErr').textContent = 'برای حالت بدون سرور یه اسم اتاق بنویس (مثلاً یه کلمه‌ی خاص که فقط شما دو نفر بدونید).';
+    $('joinErr').style.display = 'block'; return;
+  }
+  if (!room) room = 'default';
+  try { localStorage.setItem('wt_name', myName); } catch {}
+  $('join').classList.remove('show');
+  if ($('modeSel').value === 'p2p') startP2P(); else connect();
+}
+$('joinBtn').onclick = join;
+$('nameIn').onkeydown = e => { if (e.key === 'Enter') join(); };
+$('rename').onclick = e => { e.preventDefault(); location.reload(); };
+
+syncPlayIcon(); syncVol(); updatePlaceholder();
+</script>
+</body>
+</html>
